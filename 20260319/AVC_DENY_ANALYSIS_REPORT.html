@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AVC Deny Analysis Report — Case 023</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --card: #1a1d27;
+    --border: #2a2d3a;
+    --text: #e0e0e6;
+    --muted: #8b8fa3;
+    --accent: #6c8cff;
+    --red: #ff5f6d;
+    --orange: #ffaa44;
+    --green: #44dd88;
+    --yellow: #ffd644;
+    --purple: #b48cff;
+    --cyan: #44ddee;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: 'Segoe UI', 'SF Pro Display', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    padding: 2rem;
+  }
+  .container { max-width: 1400px; margin: 0 auto; }
+
+  /* Header */
+  .header {
+    text-align: center;
+    padding: 3rem 2rem;
+    background: linear-gradient(135deg, #1a1d27 0%, #252838 100%);
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    margin-bottom: 2rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .header::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--red), var(--orange), var(--yellow), var(--green), var(--accent), var(--purple));
+  }
+  .header h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    margin-bottom: 0.5rem;
+  }
+  .header .subtitle {
+    color: var(--muted);
+    font-size: 0.95rem;
+  }
+  .header .meta {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    margin-top: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .meta-item {
+    background: rgba(108,140,255,0.08);
+    border: 1px solid rgba(108,140,255,0.2);
+    border-radius: 8px;
+    padding: 0.5rem 1.2rem;
+    font-size: 0.85rem;
+  }
+  .meta-item span { color: var(--accent); font-weight: 600; }
+
+  /* Stats Row */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+  .stat-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    text-align: center;
+    transition: transform 0.2s;
+  }
+  .stat-card:hover { transform: translateY(-2px); }
+  .stat-card .number {
+    font-size: 2.2rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--accent), var(--purple));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .stat-card.danger .number {
+    background: linear-gradient(135deg, var(--red), var(--orange));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .stat-card.warn .number {
+    background: linear-gradient(135deg, var(--orange), var(--yellow));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .stat-card.ok .number {
+    background: linear-gradient(135deg, var(--green), var(--cyan));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .stat-card .label {
+    color: var(--muted);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 0.3rem;
+  }
+
+  /* Section */
+  .section {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem 2rem;
+    margin-bottom: 1.5rem;
+  }
+  .section h2 {
+    font-size: 1.2rem;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .section h3 {
+    font-size: 1rem;
+    margin: 1.2rem 0 0.6rem;
+    color: var(--accent);
+  }
+
+  /* Table */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+  }
+  thead th {
+    text-align: left;
+    padding: 0.7rem 0.8rem;
+    background: rgba(108,140,255,0.06);
+    border-bottom: 2px solid var(--border);
+    color: var(--muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+  }
+  tbody td {
+    padding: 0.6rem 0.8rem;
+    border-bottom: 1px solid rgba(42,45,58,0.6);
+    vertical-align: top;
+  }
+  tbody tr:hover { background: rgba(108,140,255,0.04); }
+
+  /* Badges */
+  .badge {
+    display: inline-block;
+    padding: 0.15rem 0.6rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .badge-p0 { background: rgba(255,95,109,0.15); color: var(--red); border: 1px solid rgba(255,95,109,0.3); }
+  .badge-p1 { background: rgba(255,170,68,0.15); color: var(--orange); border: 1px solid rgba(255,170,68,0.3); }
+  .badge-p2 { background: rgba(68,221,136,0.15); color: var(--green); border: 1px solid rgba(68,221,136,0.3); }
+  .badge-enforcing { background: rgba(255,95,109,0.12); color: var(--red); border: 1px solid rgba(255,95,109,0.25); }
+  .badge-permissive { background: rgba(255,214,68,0.12); color: var(--yellow); border: 1px solid rgba(255,214,68,0.25); }
+  .badge-count {
+    background: rgba(108,140,255,0.1);
+    color: var(--accent);
+    border: 1px solid rgba(108,140,255,0.25);
+    min-width: 3rem;
+    text-align: center;
+  }
+  .badge-machines {
+    background: rgba(180,140,255,0.1);
+    color: var(--purple);
+    border: 1px solid rgba(180,140,255,0.25);
+  }
+
+  /* Code Block */
+  .code-block {
+    background: #13151d;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.2rem;
+    font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.8rem;
+    line-height: 1.7;
+    overflow-x: auto;
+    margin: 0.8rem 0;
+    color: #c8ccd8;
+  }
+  .code-block .comment { color: #5a6080; }
+  .code-block .keyword { color: var(--accent); }
+  .code-block .type { color: var(--purple); }
+  .code-block .string { color: var(--green); }
+
+  /* Bar chart */
+  .bar-chart { margin: 1rem 0; }
+  .bar-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 0.4rem;
+    font-size: 0.8rem;
+  }
+  .bar-label {
+    width: 260px;
+    text-align: right;
+    padding-right: 1rem;
+    font-family: 'Cascadia Code', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .bar-track {
+    flex: 1;
+    height: 22px;
+    background: rgba(108,140,255,0.06);
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+  }
+  .bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    padding-left: 0.5rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #fff;
+    min-width: fit-content;
+    transition: width 0.8s ease;
+  }
+
+  /* Issue card */
+  .issue-card {
+    background: rgba(0,0,0,0.2);
+    border-radius: 10px;
+    padding: 1.2rem 1.5rem;
+    margin: 0.8rem 0;
+    border-left: 3px solid var(--border);
+  }
+  .issue-card.p0 { border-left-color: var(--red); }
+  .issue-card.p1 { border-left-color: var(--orange); }
+  .issue-card.p2 { border-left-color: var(--green); }
+  .issue-card .issue-title {
+    font-weight: 600;
+    margin-bottom: 0.4rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .issue-card .issue-body { color: var(--muted); font-size: 0.85rem; }
+  .issue-card .issue-body strong { color: var(--text); }
+  .issue-rule {
+    font-family: 'Cascadia Code', monospace;
+    font-size: 0.78rem;
+    color: var(--cyan);
+    background: rgba(68,221,238,0.06);
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    display: inline-block;
+    margin: 0.15rem 0;
+  }
+
+  /* Two col */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+  }
+  @media (max-width: 900px) {
+    .two-col { grid-template-columns: 1fr; }
+    .bar-label { width: 160px; }
+  }
+
+  /* Root cause */
+  .rc-list { list-style: none; padding: 0; }
+  .rc-list li {
+    padding: 0.8rem 1rem;
+    margin: 0.5rem 0;
+    background: rgba(0,0,0,0.2);
+    border-radius: 8px;
+    border-left: 3px solid var(--purple);
+    font-size: 0.88rem;
+  }
+  .rc-list li strong { color: var(--accent); }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.78rem;
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+  }
+
+  /* Scrollable wrapper */
+  .table-wrap { overflow-x: auto; }
+
+  /* Toggle */
+  details { margin: 0.5rem 0; }
+  details summary {
+    cursor: pointer;
+    padding: 0.5rem 0;
+    color: var(--accent);
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+  details summary:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<!-- HEADER -->
+<div class="header">
+  <h1>AVC Deny Analysis Report</h1>
+  <p class="subtitle">Case #023 — SELinux Policy Violation Analysis for T70 Platform</p>
+  <div class="meta">
+    <div class="meta-item">Date: <span>2026-03-19</span></div>
+    <div class="meta-item">Platform: <span>T70 (AQ3A.250924.001)</span></div>
+    <div class="meta-item">Machines: <span>5 devices</span></div>
+    <div class="meta-item">Build: <span>Android 15</span></div>
+  </div>
+</div>
+
+<!-- STATS ROW -->
+<div class="stats-row">
+  <div class="stat-card danger">
+    <div class="number">5,205</div>
+    <div class="label">Total AVC Denies</div>
+  </div>
+  <div class="stat-card warn">
+    <div class="number">~450</div>
+    <div class="label">Unique Rules Missing</div>
+  </div>
+  <div class="stat-card">
+    <div class="number">40</div>
+    <div class="label">Source Domains</div>
+  </div>
+  <div class="stat-card danger">
+    <div class="number">6</div>
+    <div class="label">P0 Critical Issues</div>
+  </div>
+  <div class="stat-card warn">
+    <div class="number">8</div>
+    <div class="label">P1 Medium Issues</div>
+  </div>
+  <div class="stat-card ok">
+    <div class="number">10+</div>
+    <div class="label">P2 Low Issues</div>
+  </div>
+</div>
+
+<!-- MACHINE OVERVIEW -->
+<div class="section">
+  <h2>&#128424; Machine Overview</h2>
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Machine</th>
+        <th>Log File</th>
+        <th>AVC Deny Count</th>
+        <th>SELinux Mode</th>
+        <th>Test Scenario</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Penny</strong> (SN:60081)</td>
+        <td>log0318-radio-60081</td>
+        <td><span class="badge badge-count">1,323</span></td>
+        <td><span class="badge badge-permissive">PERMISSIVE</span></td>
+        <td>nosim + kernel modem restart stress</td>
+      </tr>
+      <tr>
+        <td><strong>Penny</strong> (SN:80008)</td>
+        <td>log0318-radio-80008</td>
+        <td><span class="badge badge-count">2,277</span></td>
+        <td><span class="badge badge-permissive">PERMISSIVE</span></td>
+        <td>nosim + kernel modem restart stress</td>
+      </tr>
+      <tr>
+        <td><strong>WWANLog A</strong></td>
+        <td>20260318DeviceAradio</td>
+        <td><span class="badge badge-count">400</span></td>
+        <td><span class="badge badge-enforcing">ENFORCING</span></td>
+        <td>WWAN Radio log</td>
+      </tr>
+      <tr>
+        <td><strong>WWANLog B</strong></td>
+        <td>log_ap017</td>
+        <td><span class="badge badge-count">267</span></td>
+        <td><span class="badge badge-enforcing">ENFORCING</span></td>
+        <td>WWAN AP log</td>
+      </tr>
+      <tr>
+        <td><strong>WWANLog C</strong></td>
+        <td>log_bsp002</td>
+        <td><span class="badge badge-count">234</span></td>
+        <td><span class="badge badge-enforcing">ENFORCING</span></td>
+        <td>WWAN BSP log</td>
+      </tr>
+      <tr>
+        <td><strong>Frank</strong> (CP#4)</td>
+        <td>logcat + logcat_radio + dmesg</td>
+        <td><span class="badge badge-count">704</span></td>
+        <td><span class="badge badge-enforcing">ENFORCING</span></td>
+        <td>Daily Userbuild</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<!-- TOP DENY BY SOURCE DOMAIN -->
+<div class="two-col">
+<div class="section">
+  <h2>&#128202; Top AVC Deny by Source Domain</h2>
+  <div class="bar-chart">
+    <div class="bar-row">
+      <div class="bar-label">hal_camera_default</div>
+      <div class="bar-track"><div class="bar-fill" style="width:100%;background:linear-gradient(90deg,var(--red),var(--orange));">390 rules</div></div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">system_server</div>
+      <div class="bar-track"><div class="bar-fill" style="width:12%;background:linear-gradient(90deg,var(--orange),var(--yellow));">7</div></div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">vendor_init</div>
+      <div class="bar-track"><div class="bar-fill" style="width:10%;background:linear-gradient(90deg,var(--orange),var(--yellow));">6</div></div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">init</div>
+      <div class="bar-track"><div class="bar-fill" style="width:7%;background:var(--accent);">4</div></div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">surfaceflinger</div>
+      <div class="bar-track"><div class="bar-fill" style="width:5.5%;background:var(--accent);">3</div></div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">nfc</div>
+      <div class="bar-track"><div class="bar-fill" style="width:5.5%;background:var(--accent);">3</div></div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">priv_app</div>
+      <div class="bar-track"><div class="bar-fill" style="width:5.5%;background:var(--accent);">3</div></div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">radio</div>
+      <div class="bar-track"><div class="bar-fill" style="width:4%;background:var(--green);">2</div></div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">netd</div>
+      <div class="bar-track"><div class="bar-fill" style="width:4%;background:var(--green);">2</div></div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">secure_element</div>
+      <div class="bar-track"><div class="bar-fill" style="width:4%;background:var(--green);">2</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h2>&#128279; Cross-Machine Common Denies (6/6)</h2>
+  <p style="color:var(--muted);font-size:0.82rem;margin-bottom:0.8rem;">The following denies appear on ALL 6 log sources:</p>
+  <table>
+    <thead>
+      <tr><th>Source</th><th>Target</th><th>Class</th><th>Action</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>system_server</td><td>vendor_default_prop</td><td>file</td><td>{read}</td></tr>
+      <tr><td>system_server</td><td>camera2_extensions_prop</td><td>file</td><td>{read}</td></tr>
+      <tr><td>system_server</td><td>sysfs</td><td>file</td><td>{read}</td></tr>
+      <tr><td>surfaceflinger</td><td>vendor_sys_gpp_prop</td><td>file</td><td>{read}</td></tr>
+      <tr><td>bootanim</td><td>vendor_sys_gpp_prop</td><td>file</td><td>{read}</td></tr>
+      <tr><td>nfc</td><td>vendor_nfc_vendor_data_file</td><td>dir</td><td>{search}</td></tr>
+      <tr><td>hal_nfc_default</td><td>vendor_nfc_vendor_data_file</td><td>dir</td><td>{search}</td></tr>
+      <tr><td>hal_health_default</td><td>sysfs</td><td>file</td><td>{read}</td></tr>
+      <tr><td>hal_bootctl_default</td><td>gsi_metadata_file</td><td>dir</td><td>{search}</td></tr>
+      <tr><td>gmscore_app</td><td>adbd_prop</td><td>file</td><td>{read}</td></tr>
+      <tr><td>gmscore_app</td><td>system_adbd_prop</td><td>file</td><td>{read}</td></tr>
+      <tr><td>fsck</td><td>fsck</td><td>capability</td><td>{kill}</td></tr>
+      <tr><td>linkerconfig</td><td>linkerconfig</td><td>capability</td><td>{kill}</td></tr>
+      <tr><td>vdc</td><td>vdc</td><td>capability</td><td>{kill}</td></tr>
+      <tr><td>vendor_init</td><td>default_prop</td><td>property_service</td><td>{set}</td></tr>
+      <tr><td>vendor_init</td><td>vendor_mm_parser_prop</td><td>property_service</td><td>{set}</td></tr>
+      <tr><td>vendor_init</td><td>vendor_ipa_dev</td><td>file</td><td>{create}</td></tr>
+      <tr><td>init</td><td>debugfs_tracing_debug</td><td>dir</td><td>{mounton}</td></tr>
+      <tr><td>init</td><td>sysfs</td><td>file</td><td>{write}</td></tr>
+    </tbody>
+  </table>
+</div>
+</div>
+
+<!-- P0 CRITICAL -->
+<div class="section">
+  <h2><span style="color:var(--red);">&#9888;</span> P0 Critical — Enforcing Mode Blocks Core Functions</h2>
+
+  <div class="issue-card p0">
+    <div class="issue-title"><span class="badge badge-p0">P0</span> radio: Modem Restart Property Set Denied</div>
+    <div class="issue-body">
+      <p><strong>Symptom:</strong> radio process cannot set modem control properties, directly impacting modem restart flow.</p>
+      <div class="issue-rule">radio -> vendor_ctl_rild_prop [property_service] {set}</div>
+      <div class="issue-rule">radio -> ctl_restart_prop [property_service] {set}</div>
+      <p style="margin-top:0.4rem;"><strong>Affected:</strong> <span class="badge badge-machines">5 machines</span> &nbsp; <strong>Root Cause:</strong> Missing <code>set_prop</code> rule in <code>radio.te</code></p>
+    </div>
+  </div>
+
+  <div class="issue-card p0">
+    <div class="issue-title"><span class="badge badge-p0">P0</span> vendor_init: Boot Initialization Properties Denied</div>
+    <div class="issue-body">
+      <p><strong>Symptom:</strong> Several vendor init properties fail to set during boot, causing incomplete initialization.</p>
+      <div class="issue-rule">vendor_init -> build_prop {set} — ro.adb.secure</div>
+      <div class="issue-rule">vendor_init -> default_prop {set} — persist.backup.ntpServer</div>
+      <div class="issue-rule">vendor_init -> vendor_mm_parser_prop {set} — vendor.mm.enable.qcom_parser</div>
+      <div class="issue-rule">vendor_init -> usb_prop {set}</div>
+      <div class="issue-rule">vendor_init -> vendor_ipa_dev [file] {create write open}</div>
+      <p style="margin-top:0.4rem;"><strong>Affected:</strong> <span class="badge badge-machines">All machines</span></p>
+    </div>
+  </div>
+
+  <div class="issue-card p0">
+    <div class="issue-title"><span class="badge badge-p0">P0</span> netd: Network xtables.lock Creation Denied</div>
+    <div class="issue-body">
+      <p><strong>Symptom:</strong> netd cannot create <code>xtables.lock</code> under <code>system_file</code> label, iptables operations may fail.</p>
+      <div class="issue-rule">netd -> system_file [dir] {add_name}</div>
+      <div class="issue-rule">netd -> system_file [file] {create}</div>
+      <p style="margin-top:0.4rem;"><strong>Impact:</strong> Network firewall rules may not apply correctly.</p>
+    </div>
+  </div>
+
+  <div class="issue-card p0">
+    <div class="issue-title"><span class="badge badge-p0">P0</span> hal_camera_default: Mass Property Read Denied (390 rules)</div>
+    <div class="issue-body">
+      <p><strong>Symptom:</strong> Camera HAL scans all system properties via <code>__system_property_foreach</code>. Currently only blocked on Penny (permissive), but switching to enforcing will <strong>crash Camera</strong>.</p>
+      <div class="issue-rule">hal_camera_default -> (390 property types) [file] {open getattr map}</div>
+      <p style="margin-top:0.4rem;"><strong>Affected:</strong> <span class="badge badge-machines">Penny only (permissive)</span> &nbsp; <strong>Risk:</strong> Will break all enforcing devices when camera lib is updated</p>
+    </div>
+  </div>
+</div>
+
+<!-- P1 MEDIUM -->
+<div class="section">
+  <h2><span style="color:var(--orange);">&#9899;</span> P1 Medium — Subsystem Functionality Impacted</h2>
+
+  <div class="issue-card p1">
+    <div class="issue-title"><span class="badge badge-p1">P1</span> vendor_hal_perf2_service: Find Denied by 5+ Clients</div>
+    <div class="issue-body">
+      <p><strong>Symptom:</strong> Qualcomm perf2 HAL service cannot be discovered, performance boost disabled.</p>
+      <div class="issue-rule">lmkd -> vendor_hal_perf2_service [service_manager] {find}</div>
+      <div class="issue-rule">surfaceflinger -> vendor_hal_perf2_service [service_manager] {find}</div>
+      <div class="issue-rule">system_server -> vendor_hal_perf2_service [service_manager] {find}</div>
+      <div class="issue-rule">vendor_perfservice -> vendor_hal_perf2_service [service_manager] {find}</div>
+      <div class="issue-rule">vendor_wlc_app -> vendor_hal_perf2_service [service_manager] {find}</div>
+      <p style="margin-top:0.4rem;"><strong>Affected:</strong> <span class="badge badge-machines">5 machines</span></p>
+    </div>
+  </div>
+
+  <div class="issue-card p1">
+    <div class="issue-title"><span class="badge badge-p1">P1</span> NFC: Vendor Data Directory & Service Access Denied</div>
+    <div class="issue-body">
+      <p><strong>Symptom:</strong> NFC service and HAL cannot access vendor NFC data, EMVCo service undiscoverable.</p>
+      <div class="issue-rule">nfc -> vendor_nfc_vendor_data_file [dir] {search}</div>
+      <div class="issue-rule">nfc -> vendor_nfc_vendor_data_file [file] {read open}</div>
+      <div class="issue-rule">hal_nfc_default -> vendor_nfc_vendor_data_file [dir] {search}</div>
+      <div class="issue-rule">nfc -> default_android_service {find} — vendor.nxp.emvco</div>
+      <p style="margin-top:0.4rem;"><strong>Affected:</strong> <span class="badge badge-machines">6 machines</span></p>
+    </div>
+  </div>
+
+  <div class="issue-card p1">
+    <div class="issue-title"><span class="badge badge-p1">P1</span> Display: surfaceflinger/bootanim QSPM HAL Binder Denied</div>
+    <div class="issue-body">
+      <div class="issue-rule">surfaceflinger -> vendor_hal_qspmhal_default [binder] {call}</div>
+      <div class="issue-rule">bootanim -> vendor_hal_qspmhal_default [binder] {call}</div>
+      <div class="issue-rule">surfaceflinger -> vendor_sys_gpp_prop [file] {read open getattr map}</div>
+      <p style="margin-top:0.4rem;"><strong>Impact:</strong> Vendor display extensions (QSPM) non-functional.</p>
+    </div>
+  </div>
+
+  <div class="issue-card p1">
+    <div class="issue-title"><span class="badge badge-p1">P1</span> system_server: Vendor Property Read Denied (Highest Frequency)</div>
+    <div class="issue-body">
+      <p><strong>Symptom:</strong> ~460 occurrences across all machines. system_server cannot read vendor properties.</p>
+      <div class="issue-rule">system_server -> vendor_default_prop [file] {read} — ~460x</div>
+      <div class="issue-rule">system_server -> camera2_extensions_prop [file] {read}</div>
+      <div class="issue-rule">system_server -> vendor_wfd_sys_debug_prop [file] {read}</div>
+      <div class="issue-rule">system_server -> system_server [capability] {sys_module}</div>
+    </div>
+  </div>
+
+  <div class="issue-card p1">
+    <div class="issue-title"><span class="badge badge-p1">P1</span> secure_element: Data File Write Denied</div>
+    <div class="issue-body">
+      <div class="issue-rule">secure_element -> system_data_file [dir] {add_name remove_name}</div>
+      <div class="issue-rule">secure_element -> system_data_file [file] {create write open rename unlink}</div>
+      <p style="margin-top:0.4rem;"><strong>Impact:</strong> SecureElement HeapTaskDaemon temp file creation fails, NFC SE may malfunction.</p>
+    </div>
+  </div>
+</div>
+
+<!-- P2 LOW -->
+<div class="section">
+  <h2><span style="color:var(--green);">&#9898;</span> P2 Low — Boot / Tooling / Debug</h2>
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>Source</th><th>Target</th><th>Class</th><th>Action</th><th>Notes</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>linkerconfig</td><td>linkerconfig</td><td>capability</td><td>{kill}</td><td>Boot linker namespace config</td></tr>
+      <tr><td>fsck</td><td>fsck</td><td>capability</td><td>{kill}</td><td>Filesystem check utility</td></tr>
+      <tr><td>vdc</td><td>vdc</td><td>capability</td><td>{kill}</td><td>Volume daemon control</td></tr>
+      <tr><td>e2fs</td><td>e2fs</td><td>capability</td><td>{kill}</td><td>ext4 utilities</td></tr>
+      <tr><td>init</td><td>debugfs_tracing_debug</td><td>dir</td><td>{mounton}</td><td>Trace mount at boot</td></tr>
+      <tr><td>hal_bootctl_default</td><td>gsi_metadata_file</td><td>dir</td><td>{search}</td><td>GSI slot check</td></tr>
+      <tr><td>gmscore_app</td><td>adbd_prop / system_adbd_prop</td><td>file</td><td>{read}</td><td>GMS reading adb state</td></tr>
+      <tr><td>dex2oat</td><td>privapp_data_file / system_data_file</td><td>dir</td><td>{search}</td><td>DEX compilation search</td></tr>
+      <tr><td>kcmdlinectrl</td><td>sysfs_dt_firmware_android</td><td>dir/file</td><td>{read open}</td><td>Kernel cmdline tool</td></tr>
+      <tr><td>shell</td><td>kernel</td><td>system</td><td>{syslog_read}</td><td>Debug only</td></tr>
+      <tr><td>su</td><td>bt_firmware_file / firmware_file</td><td>filesystem</td><td>{getattr}</td><td>Root shell access</td></tr>
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<!-- ROOT CAUSE ANALYSIS -->
+<div class="section">
+  <h2>&#128269; Root Cause Analysis</h2>
+  <ul class="rc-list">
+    <li>
+      <strong>Qualcomm vendor HAL services lack SELinux policy:</strong>
+      New BSP components (<code>vendor_hal_perf2_service</code>, <code>vendor_hal_qspmhal_default</code>, <code>vendor_nfc_vendor_data_file</code>) were introduced without corresponding <code>.te</code> rules in <code>device/&lt;vendor&gt;/&lt;device&gt;/sepolicy/</code>.
+    </li>
+    <li>
+      <strong>hal_camera_default policy too narrow:</strong>
+      Camera HAL performs a full property scan (<code>__system_property_foreach</code>), likely from Qualcomm camera library. Policy only grants access to a small subset. Needs either broader <code>get_prop</code> macros or camera lib fix.
+    </li>
+    <li>
+      <strong>radio/vendor_init property rules missing:</strong>
+      RIL-related property controls for modem restart and init-time vendor properties are not defined in policy. This is the most likely cause of modem restart failures.
+    </li>
+    <li>
+      <strong>Penny device in PERMISSIVE mode masks severity:</strong>
+      Penny's 3,600 denies are all <code>permissive=1</code> (logged but not blocked). Switching to enforcing will cause widespread functional failures on this device.
+    </li>
+  </ul>
+</div>
+
+<!-- FIX RECOMMENDATIONS -->
+<div class="section">
+  <h2>&#128736; Recommended Sepolicy Fixes</h2>
+
+  <h3>P0 — Immediate Fix Required</h3>
+  <div class="code-block">
+<span class="comment"># ---- radio.te ----</span>
+<span class="comment"># Fix modem restart property control</span>
+<span class="keyword">allow</span> radio vendor_ctl_rild_prop:<span class="type">property_service</span> { set };
+<span class="keyword">allow</span> radio ctl_restart_prop:<span class="type">property_service</span> { set };
+
+<span class="comment"># ---- vendor_init.te ----</span>
+<span class="comment"># Fix boot-time property and device node init</span>
+<span class="keyword">set_prop</span>(vendor_init, vendor_mm_parser_prop)
+<span class="keyword">set_prop</span>(vendor_init, default_prop)
+<span class="keyword">set_prop</span>(vendor_init, build_prop)
+<span class="keyword">set_prop</span>(vendor_init, usb_prop)
+<span class="keyword">allow</span> vendor_init vendor_ipa_dev:<span class="type">file</span> { create write open };
+<span class="keyword">allow</span> vendor_init persist_debug_prop:<span class="type">file</span> { read };
+
+<span class="comment"># ---- netd.te ----</span>
+<span class="comment"># Fix iptables lock file creation</span>
+<span class="keyword">allow</span> netd system_file:<span class="type">dir</span> { add_name };
+<span class="keyword">allow</span> netd system_file:<span class="type">file</span> { create };
+  </div>
+
+  <h3>P1 — Fix ASAP</h3>
+  <div class="code-block">
+<span class="comment"># ---- system_server.te ----</span>
+<span class="keyword">get_prop</span>(system_server, vendor_default_prop)
+<span class="keyword">get_prop</span>(system_server, camera2_extensions_prop)
+<span class="keyword">allow</span> system_server vendor_hal_perf2_service:<span class="type">service_manager</span> { find };
+<span class="keyword">allow</span> system_server default_android_service:<span class="type">service_manager</span> { find };
+
+<span class="comment"># ---- perf2 service clients ----</span>
+<span class="keyword">allow</span> lmkd vendor_hal_perf2_service:<span class="type">service_manager</span> { find };
+<span class="keyword">allow</span> surfaceflinger vendor_hal_perf2_service:<span class="type">service_manager</span> { find };
+<span class="keyword">allow</span> vendor_perfservice vendor_hal_perf2_service:<span class="type">service_manager</span> { find };
+
+<span class="comment"># ---- NFC ----</span>
+<span class="keyword">allow</span> nfc vendor_nfc_vendor_data_file:<span class="type">dir</span> { search };
+<span class="keyword">allow</span> nfc vendor_nfc_vendor_data_file:<span class="type">file</span> { read open };
+<span class="keyword">allow</span> hal_nfc_default vendor_nfc_vendor_data_file:<span class="type">dir</span> { search };
+<span class="keyword">allow</span> nfc default_android_service:<span class="type">service_manager</span> { find };
+
+<span class="comment"># ---- Display ----</span>
+<span class="keyword">allow</span> surfaceflinger vendor_hal_qspmhal_default:<span class="type">binder</span> { call };
+<span class="keyword">allow</span> bootanim vendor_hal_qspmhal_default:<span class="type">binder</span> { call };
+<span class="keyword">get_prop</span>(surfaceflinger, vendor_sys_gpp_prop)
+<span class="keyword">get_prop</span>(bootanim, vendor_sys_gpp_prop)
+
+<span class="comment"># ---- SecureElement ----</span>
+<span class="keyword">allow</span> secure_element system_data_file:<span class="type">dir</span> { add_name remove_name };
+<span class="keyword">allow</span> secure_element system_data_file:<span class="type">file</span> { create write open rename unlink };
+  </div>
+
+  <h3>P2 — Cleanup</h3>
+  <div class="code-block">
+<span class="comment"># ---- capability {kill} for boot utilities ----</span>
+<span class="keyword">allow</span> linkerconfig linkerconfig:<span class="type">capability</span> { kill };
+<span class="keyword">allow</span> fsck fsck:<span class="type">capability</span> { kill };
+<span class="keyword">allow</span> vdc vdc:<span class="type">capability</span> { kill };
+<span class="keyword">allow</span> e2fs e2fs:<span class="type">capability</span> { kill };
+
+<span class="comment"># ---- hal_camera_default ----</span>
+<span class="comment"># Option A: Grant necessary property access (recommended)</span>
+<span class="comment"># Option B: Fix camera HAL code to avoid full property scan</span>
+<span class="comment"># get_prop(hal_camera_default, vendor_property_type) — BROAD, evaluate carefully</span>
+  </div>
+</div>
+
+<!-- VERIFICATION -->
+<div class="section">
+  <h2>&#9989; Verification Steps</h2>
+  <div class="code-block">
+<span class="comment"># 1. Collect AVC deny logs</span>
+adb shell dmesg | grep <span class="string">"avc:  denied"</span>
+adb logcat -b all | grep <span class="string">"avc:  denied"</span>
+
+<span class="comment"># 2. Generate policy with audit2allow</span>
+adb shell dmesg | audit2allow -p policy
+
+<span class="comment"># 3. After flashing updated sepolicy</span>
+adb shell getenforce                        <span class="comment"># Must show "Enforcing"</span>
+adb shell dmesg | grep -c <span class="string">"avc:  denied"</span>  <span class="comment"># Should be 0 or minimal</span>
+
+<span class="comment"># 4. Functional verification</span>
+<span class="comment"># - Modem restart test (radio P0)</span>
+<span class="comment"># - Camera launch test (hal_camera P0)</span>
+<span class="comment"># - NFC tap-to-pay test (nfc P1)</span>
+<span class="comment"># - Network connectivity test (netd P0)</span>
+<span class="comment"># - Display/boot animation test (surfaceflinger P1)</span>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<div class="footer">
+  <p>Generated on 2026-03-19 &bull; AVC Deny Analysis for Case #023 &bull; Platform T70 (AQ3A.250924.001)</p>
+  <p style="margin-top:0.3rem;">5 devices analyzed &bull; 5,205 total denies &bull; ~450 unique missing rules &bull; 40 source domains</p>
+</div>
+
+</div>
+</body>
+</html>
