@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Files by Google Crash 分析報告</title>
+<style>
+  :root {
+    --bg: #0f1117; --card: #1a1d27; --border: #2a2d3a; --text: #e0e0e6; --muted: #8b8fa3;
+    --accent: #6c8cff; --red: #ff5f6d; --orange: #ffaa44; --green: #44dd88;
+    --yellow: #ffd644; --purple: #b48cff; --cyan: #44ddee;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Microsoft JhengHei','Segoe UI',sans-serif; background:var(--bg); color:var(--text); line-height:1.7; padding:2rem; }
+  .container { max-width:1300px; margin:0 auto; }
+  .header { text-align:center; padding:3rem 2rem; background:linear-gradient(135deg,#1a1d27,#252838); border-radius:16px; border:1px solid var(--border); margin-bottom:2rem; position:relative; overflow:hidden; }
+  .header::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background:linear-gradient(90deg,var(--red),var(--orange),var(--yellow),var(--green),var(--accent)); }
+  .header h1 { font-size:2rem; font-weight:700; margin-bottom:0.5rem; }
+  .header .subtitle { color:var(--muted); font-size:0.95rem; }
+  .header .meta { display:flex; justify-content:center; gap:2rem; margin-top:1.5rem; flex-wrap:wrap; }
+  .meta-item { background:rgba(108,140,255,0.08); border:1px solid rgba(108,140,255,0.2); border-radius:8px; padding:0.5rem 1.2rem; font-size:0.85rem; }
+  .meta-item span { color:var(--accent); font-weight:600; }
+  .stats-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:1rem; margin-bottom:2rem; }
+  .stat-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:1.5rem; text-align:center; }
+  .stat-card .number { font-size:2rem; font-weight:700; }
+  .stat-card.danger .number { background:linear-gradient(135deg,var(--red),var(--orange)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+  .stat-card.warn .number { background:linear-gradient(135deg,var(--orange),var(--yellow)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+  .stat-card.info .number { background:linear-gradient(135deg,var(--accent),var(--purple)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+  .stat-card .label { color:var(--muted); font-size:0.78rem; text-transform:uppercase; letter-spacing:1px; margin-top:0.3rem; }
+  .section { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:1.5rem 2rem; margin-bottom:1.5rem; }
+  .section h2 { font-size:1.2rem; margin-bottom:1rem; }
+  .section h3 { font-size:1rem; margin:1.2rem 0 0.6rem; color:var(--accent); }
+  table { width:100%; border-collapse:collapse; font-size:0.85rem; }
+  thead th { text-align:left; padding:0.7rem 0.8rem; background:rgba(108,140,255,0.06); border-bottom:2px solid var(--border); color:var(--muted); font-weight:600; font-size:0.78rem; }
+  tbody td { padding:0.6rem 0.8rem; border-bottom:1px solid rgba(42,45,58,0.6); vertical-align:top; }
+  tbody tr:hover { background:rgba(108,140,255,0.04); }
+  .badge { display:inline-block; padding:0.15rem 0.6rem; border-radius:20px; font-size:0.75rem; font-weight:600; }
+  .badge-red { background:rgba(255,95,109,0.15); color:var(--red); border:1px solid rgba(255,95,109,0.3); }
+  .badge-yellow { background:rgba(255,214,68,0.12); color:var(--yellow); border:1px solid rgba(255,214,68,0.25); }
+  .badge-green { background:rgba(68,221,136,0.15); color:var(--green); border:1px solid rgba(68,221,136,0.3); }
+  .code-block { background:#13151d; border:1px solid var(--border); border-radius:8px; padding:1rem 1.2rem; font-family:'Cascadia Code','Consolas',monospace; font-size:0.8rem; line-height:1.7; overflow-x:auto; margin:0.8rem 0; color:#c8ccd8; }
+  .timeline { position:relative; padding-left:2rem; }
+  .timeline::before { content:''; position:absolute; left:0.5rem; top:0; bottom:0; width:2px; background:var(--border); }
+  .tl-item { position:relative; margin-bottom:1.2rem; }
+  .tl-item::before { content:''; position:absolute; left:-1.65rem; top:0.4rem; width:10px; height:10px; border-radius:50%; border:2px solid var(--accent); background:var(--bg); }
+  .tl-item.crash::before { border-color:var(--red); background:var(--red); }
+  .tl-item .tl-time { font-size:0.78rem; color:var(--muted); font-family:monospace; }
+  .tl-item .tl-desc { font-size:0.88rem; margin-top:0.2rem; }
+  .rc-list { list-style:none; padding:0; }
+  .rc-list li { padding:0.8rem 1rem; margin:0.5rem 0; background:rgba(0,0,0,0.2); border-radius:8px; border-left:3px solid var(--purple); font-size:0.88rem; }
+  .rc-list li strong { color:var(--accent); }
+  .two-col { display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; }
+  @media(max-width:900px) { .two-col { grid-template-columns:1fr; } }
+  .footer { text-align:center; color:var(--muted); font-size:0.78rem; margin-top:2rem; padding-top:1.5rem; border-top:1px solid var(--border); }
+  .highlight { background:rgba(255,95,109,0.1); border:1px solid rgba(255,95,109,0.2); border-radius:8px; padding:1rem 1.5rem; margin:1rem 0; }
+  .highlight h4 { color:var(--red); margin-bottom:0.5rem; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<div class="header">
+  <h1>Files by Google Crash 分析報告</h1>
+  <p class="subtitle">Case #2 — 大量檔案複製時 Files by Google 閃退</p>
+  <div class="meta">
+    <div class="meta-item">日期：<span>2026-03-19</span></div>
+    <div class="meta-item">裝置：<span>Thorpe DVT3 (T70)</span></div>
+    <div class="meta-item">OS：<span>2.01.02 / 2.01.03</span></div>
+    <div class="meta-item">Build：<span>AQ3A.250408.001</span></div>
+  </div>
+</div>
+
+<!-- 統計 -->
+<div class="stats-row">
+  <div class="stat-card danger"><div class="number">2</div><div class="label">Crash 事件</div></div>
+  <div class="stat-card info"><div class="number">~7.3 GB</div><div class="label">裝置 RAM</div></div>
+  <div class="stat-card info"><div class="number">4 GB</div><div class="label">ZRAM Swap</div></div>
+  <div class="stat-card warn"><div class="number">256+</div><div class="label">OOM Reaper 事件</div></div>
+  <div class="stat-card warn"><div class="number">14%</div><div class="label">kswapd CPU 使用率</div></div>
+  <div class="stat-card danger"><div class="number">LOW_MEMORY</div><div class="label">Kill 原因</div></div>
+</div>
+
+<!-- 問題描述 -->
+<div class="section">
+  <h2>&#128196; 問題描述</h2>
+  <p><strong>回報者</strong>測試時使用 SanDisk USB-C 隨身碟（32GB/64GB），將兩個資料夾（各含五個 2.47GB ZIP 檔）從 USB 複製到內部儲存空間 Documents。重複填滿內部記憶體（約 85GB 可用，可複製 3 次約 25GB 的資料）然後全選刪除、重新開機，反覆操作。在約 10~15 次填滿操作過程中，<strong>Files by Google 發生了 2 次閃退/消失</strong>。</p>
+  <p style="margin-top:0.5rem;color:var(--muted);">回報者懷疑這是 Android 層級的問題，因為在 Akita 專案上進行相同測試也出現類似現象。</p>
+</div>
+
+<!-- 關鍵發現 -->
+<div class="highlight">
+  <h4>&#9888; 關鍵結論：Files by Google 並非 App Crash，而是被 Linux Kernel OOM Killer 強制終止</h4>
+  <p>兩次事件的 kill reason 均為 <code>reason=3 (LOW_MEMORY)</code>，由 kernel <code>oom_reaper</code> 直接回收進程記憶體。這不是 Files by Google 本身的 bug，而是<strong>系統級記憶體不足</strong>導致前景 App 被殺。</p>
+</div>
+
+<!-- 兩次 Crash 對比 -->
+<div class="section">
+  <h2>&#128203; 兩次 Crash 事件對比</h2>
+  <table>
+    <thead>
+      <tr><th>項目</th><th>BugReport #1 (2026-02-09)</th><th>BugReport #2 (2026-02-11)</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Crash 時間</td><td>15:44:47</td><td>13:01:01</td></tr>
+      <tr><td>被 Kill 的 PID</td><td>4796</td><td>5170</td></tr>
+      <tr><td>Kill 原因</td><td><span class="badge badge-red">LOW_MEMORY (reason=3)</span></td><td><span class="badge badge-red">LOW_MEMORY (reason=3)</span></td></tr>
+      <tr><td>oom_reaper 回收</td><td>anon-rss:0kB, file-rss:3244kB, shmem-rss:3724kB</td><td>anon-rss:0kB, file-rss:2728kB, shmem-rss:2820kB</td></tr>
+      <tr><td>前景 Activity</td><td>AdvancedBrowsingActivity (複製中)</td><td>AdvancedBrowsingActivity (複製中)</td></tr>
+      <tr><td>Crash 前 oom_reaper 數量</td><td>71 個進程在 15:44 被 reap</td><td>64 個進程在 13:01 被 reap</td></tr>
+      <tr><td>MemTotal</td><td>7,471,928 kB (~7.1 GB)</td><td>7,471,928 kB (~7.1 GB)</td></tr>
+      <tr><td>MemFree (bugreport 時)</td><td>1,196,896 kB (~1.1 GB)</td><td>1,179,292 kB (~1.1 GB)</td></tr>
+      <tr><td>SwapTotal / SwapFree</td><td>4,194,300 / 3,812,648 kB</td><td>4,194,300 / 3,788,248 kB</td></tr>
+      <tr><td>/data 使用率</td><td>50 GB / 89 GB (56%)</td><td>32 GB / 89 GB (37%)</td></tr>
+      <tr><td>kswapd CPU 使用率</td><td>14% + 13% (雙 kswapd)</td><td>14% + 13%</td></tr>
+      <tr><td>usb-storage CPU</td><td>3.1% kernel</td><td>N/A</td></tr>
+      <tr><td>總 oom_reaper 事件</td><td>256</td><td>266</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 事件時間線 -->
+<div class="two-col">
+<div class="section">
+  <h2>&#128337; BugReport #1 事件時間線 (02-09)</h2>
+  <div class="timeline">
+    <div class="tl-item"><div class="tl-time">15:36:54</div><div class="tl-desc">ZRAM swap 啟用 (4GB)</div></div>
+    <div class="tl-item"><div class="tl-time">15:37:53</div><div class="tl-desc">oom_reaper 開始大量回收背景進程 (maps, docs, tachyon, wellbeing...)</div></div>
+    <div class="tl-item"><div class="tl-time">15:40:38</div><div class="tl-desc">gms.unstable 被 oom_reaper 回收</div></div>
+    <div class="tl-item"><div class="tl-time">15:42:15</div><div class="tl-desc">Files by Google: 使用者在 AdvancedBrowsingActivity 操作</div></div>
+    <div class="tl-item"><div class="tl-time">15:42:53</div><div class="tl-desc">Files by Google: 開啟 AdvancedBrowsingPickerActivity (選擇複製目的地)</div></div>
+    <div class="tl-item"><div class="tl-time">15:43:05</div><div class="tl-desc">oom_reaper 繼續回收 (acore, settings, photos...)</div></div>
+    <div class="tl-item"><div class="tl-time">15:44:46</div><div class="tl-desc">oom_reaper 回收 photopicker；lmkd reinit 觸發</div></div>
+    <div class="tl-item"><div class="tl-time">15:44:47</div><div class="tl-desc">71 個進程在同一秒內被 oom_reaper 回收</div></div>
+    <div class="tl-item crash"><div class="tl-time">15:44:47.863</div><div class="tl-desc"><strong>oom_reaper: reaped process 4796 (.apps.nbu.files)</strong> — Files by Google 被 kernel 強制終止</div></div>
+    <div class="tl-item"><div class="tl-time">15:44:47.880</div><div class="tl-desc">ActivityManager: Process has died: fg TOP</div></div>
+    <div class="tl-item"><div class="tl-time">15:44:47.894</div><div class="tl-desc">Force remove HomeActivity + AdvancedBrowsingActivity</div></div>
+  </div>
+</div>
+
+<div class="section">
+  <h2>&#128337; BugReport #2 事件時間線 (02-11)</h2>
+  <div class="timeline">
+    <div class="tl-item"><div class="tl-time">12:59:12</div><div class="tl-desc">kswapd CPU 已達 11% — 記憶體壓力上升中</div></div>
+    <div class="tl-item"><div class="tl-time">13:01:01.589</div><div class="tl-desc">多個背景服務 crash/reschedule (messaging, gms, launcher...)</div></div>
+    <div class="tl-item"><div class="tl-time">13:01:01.601</div><div class="tl-desc">smspush 進程被 kill (vis IMPF)</div></div>
+    <div class="tl-item crash"><div class="tl-time">13:01:01.653</div><div class="tl-desc"><strong>oom_reaper: reaped process 5170 (.apps.nbu.files)</strong> — Files by Google 被 kernel 強制終止</div></div>
+    <div class="tl-item"><div class="tl-time">13:01:01.747</div><div class="tl-desc">ActivityManager: Process has died: fg TOP</div></div>
+    <div class="tl-item"><div class="tl-time">13:01:01.758</div><div class="tl-desc">Force removing AdvancedBrowsingActivity: app died, no saved state</div></div>
+  </div>
+</div>
+</div>
+
+<!-- 根因分析 -->
+<div class="section">
+  <h2>&#128269; Root Cause 分析</h2>
+  <ul class="rc-list">
+    <li>
+      <strong>直接原因：Linux Kernel OOM Killer 強制終止 Files by Google 進程</strong><br>
+      兩次事件均記錄 <code>reason=3 (LOW_MEMORY)</code>，由 <code>oom_reaper</code> 直接回收。這不是 App crash (exception/ANR)，而是系統級的記憶體不足回收。
+    </li>
+    <li>
+      <strong>記憶體壓力來源：大檔案複製產生的 Page Cache 壓力</strong><br>
+      從 USB 複製 10 個 2.47GB 檔案 (~24.7GB) 到內部儲存時，Linux kernel 需要大量 page cache 來緩衝 I/O。kswapd 持續以 14% CPU 運行，表示 kernel 一直在回收記憶體。usb-storage 也消耗 3.1% CPU。
+    </li>
+    <li>
+      <strong>FUSE 檔案系統加劇記憶體消耗</strong><br>
+      Android 使用 FUSE (Filesystem in Userspace) 掛載 /storage/emulated，每次 I/O 需要額外的 kernel-to-userspace context switch 和 buffer copy。ExternalStorageServiceImpl (MediaProvider) 也在運行中。大量檔案複製通過 FUSE 會顯著增加記憶體使用。
+    </li>
+    <li>
+      <strong>系統 RAM 不足以應付此工作負載</strong><br>
+      裝置僅有 ~7.1 GB RAM + 4 GB ZRAM swap。複製 24.7GB 大檔案時，page cache 和 dirty pages 的需求遠超可用記憶體。在 crash 前的一秒內，有 64~71 個進程被同時回收，顯示系統已進入極度記憶體不足狀態。
+    </li>
+    <li>
+      <strong>反覆填滿/刪除加劇碎片化</strong><br>
+      測試步驟要求反覆填滿儲存空間再刪除，這會導致 f2fs/ext4 檔案系統碎片化，增加 metadata 記憶體使用量，並使 I/O 效率降低。
+    </li>
+  </ul>
+</div>
+
+<!-- 結論 -->
+<div class="section">
+  <h2>&#128221; 結論與建議</h2>
+
+  <h3>這是 Android 問題還是 Files by Google 問題？</h3>
+  <p>報告者的懷疑是正確的 — <strong>這主要是 Android/Kernel 層級的記憶體管理問題，而非 Files by Google 的 App bug</strong>。Files by Google 是被系統 OOM Killer 殺掉的受害者。</p>
+
+  <h3>建議處理方案</h3>
+  <table>
+    <thead><tr><th>方案</th><th>層級</th><th>說明</th><th>負責方</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>1. 向 Google 回報 Bug</strong></td>
+        <td>Android / Google</td>
+        <td>
+          回報至 Google Issue Tracker，分類為 Android > Framework > Activity Manager 或 Storage。
+          附上兩份 bugreport，說明大量 USB-to-internal 檔案複製觸發 OOM kill foreground app。
+          Google 可能需要優化 FUSE I/O 路徑的記憶體使用或 LMK 對前景複製操作的保護。
+        </td>
+        <td>ODM -> Google</td>
+      </tr>
+      <tr>
+        <td><strong>2. 調整 LMK 參數</strong></td>
+        <td>Kernel / Vendor</td>
+        <td>
+          調整 <code>lmkd</code> 參數，對正在進行大量 I/O 的前景 App 提供更高的保護優先級。
+          考慮調低 <code>dirty_reclaim_rate</code> 和 <code>target_dirty_ratio</code>（目前為 80%）。
+        </td>
+        <td>BSP / Kernel 團隊</td>
+      </tr>
+      <tr>
+        <td><strong>3. 限制 Page Cache 使用量</strong></td>
+        <td>Kernel</td>
+        <td>
+          設定 <code>vm.dirty_ratio</code> 和 <code>vm.dirty_background_ratio</code> 為較低值，
+          避免大量 I/O 時 dirty pages 佔用過多記憶體。
+        </td>
+        <td>BSP / Kernel 團隊</td>
+      </tr>
+      <tr>
+        <td><strong>4. 考慮增加 ZRAM 大小</strong></td>
+        <td>Vendor</td>
+        <td>目前 ZRAM 為 4GB，可評估增加至 6GB 以提供更多 swap 緩衝。</td>
+        <td>BSP 團隊</td>
+      </tr>
+      <tr>
+        <td><strong>5. Files by Google 應用層優化</strong></td>
+        <td>App (Google)</td>
+        <td>
+          建議 Google 在大量複製操作時實作 chunked I/O 和 memory-aware throttling，
+          減少單次複製操作的記憶體佔用。可使用 <code>ComponentCallbacks2.onTrimMemory()</code> 響應。
+        </td>
+        <td>Google (Files 團隊)</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>向 Google 回報時建議包含的資訊</h3>
+  <div class="code-block">
+<strong>Title:</strong> OOM kills foreground Files by Google during large USB-to-internal file copy
+
+<strong>Component:</strong> Android > Framework > ActivityManager (or Storage)
+
+<strong>Description:</strong>
+Device: Thorpe DVT3 (T70), ~7.1GB RAM, 4GB ZRAM, Android 15 (AQ3A.250408.001)
+Steps to reproduce:
+1. Connect SanDisk USB-C drive with 10x 2.47GB ZIP files
+2. Use Files by Google to copy all files to Internal Storage/Documents
+3. Repeat fill/delete cycle 10-15 times
+
+Result: Files by Google is killed by OOM killer (reason=3 LOW_MEMORY)
+        oom_reaper reaps 64-71 processes in a single second
+        kswapd running at 14% CPU continuously
+
+Evidence from bugreport:
+- oom_reaper: reaped process 4796 (.apps.nbu.files)
+- am_proc_died: [0,4796,com.google.android.apps.nbu.files,0,2]
+- process kill reason=3 (LOW_MEMORY) subreason=0 (UNKNOWN)
+
+Root cause: Page cache pressure from large USB file I/O through FUSE
+            exhausts available memory, OOM killer targets foreground app.
+            256+ oom_reaper events in single bugreport session.
+
+Attached: 2 full bugreports
+  </div>
+</div>
+
+<div class="footer">
+  <p>產出日期：2026-03-19 | Files by Google Crash 分析 | 裝置：Thorpe DVT3 (T70) AQ3A.250408.001</p>
+  <p style="margin-top:0.3rem;">2 份 BugReport 分析 | 根因：Kernel OOM Kill (LOW_MEMORY) | 非 App Bug</p>
+</div>
+
+</div>
+</body>
+</html>
