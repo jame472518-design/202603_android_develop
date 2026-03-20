@@ -59,6 +59,8 @@ process=com.google.android.apps.nbu.files reason=3 (LOW_MEMORY) subreason=0 (UNK
 ### 4.3 結論
 **這是 Android/Kernel 層級的記憶體管理問題，非 Files by Google App bug。** Files by Google 是 OOM Killer 的受害者。
 
+> 詳細責任歸屬分析請參見 [FilesByGoogle_Crash_責任歸屬分析.md](FilesByGoogle_Crash_責任歸屬分析.md)
+
 ---
 
 ## 5. 建議處理方案

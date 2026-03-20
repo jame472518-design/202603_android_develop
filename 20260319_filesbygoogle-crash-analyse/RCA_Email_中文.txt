@@ -1,0 +1,30 @@
+Subject: [RCA] Files by Google 閃退分析結果 — 預期行為，建議不調整
+
+Hi all,
+
+關於 Files by Google 在大量 USB 檔案複製時閃退的問題，RCA 分析已完成，結論如下：
+
+【結論】
+這是 Android 系統在記憶體極度不足時的預期行為 (Expected Behavior)，建議不調整。
+
+【Root Cause】
+Files by Google 並非 App Crash，而是被 Linux Kernel OOM Killer 強制終止 (reason=3, LOW_MEMORY)。
+
+複製 24.7GB 檔案時，系統記憶體不足，Kernel 按照 oom_score_adj 優先級依序殺進程：
+  1. 先殺背景服務（GMS、AI Service、通知助手等）
+  2. 再殺桌面 Launcher
+  3. 最後不得已才殺前景的 Files by Google (adj=0, fg TOP)
+
+兩份 bugreport (02-09 / 02-11) 的殺進程順序幾乎一致，證明這是可重現的系統行為。
+
+【關鍵證據】
+  - Kill 原因：reason=3 (LOW_MEMORY), importance=100 (前景 App)
+  - kswapd CPU：14% + 13%，Kernel 記憶體回收全力運行仍不足
+  - oom_reaper 事件：242 / 254 次（正常應趨近 0）
+
+【為什麼是預期行為】
+驗證 Files by Google 在使用中的 oom_score_adj = 0（前景最高優先級），Kernel 已經先殺完所有低優先級進程才輪到它。這符合 Linux OOM Killer 的設計。
+
+詳細分析請見附件 RCA 簡報。
+
+Best regards,

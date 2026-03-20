@@ -1,0 +1,30 @@
+Subject: [RCA] Files by Google Crash During USB File Copy — Expected Behavior, No Fix Recommended
+
+Hi all,
+
+The RCA for the Files by Google crash during large USB file copy is complete. Summary below:
+
+[Conclusion]
+This is expected behavior under extreme memory pressure. No fix recommended.
+
+[Root Cause]
+Files by Google did not crash due to an app bug. It was forcefully terminated by the Linux Kernel OOM Killer (reason=3, LOW_MEMORY).
+
+When copying 24.7GB of files from USB, the system ran out of memory. The Kernel killed processes in oom_score_adj priority order:
+  1. Background services first (GMS, AI Service, Notification Assistant, etc.)
+  2. Then the Home Launcher
+  3. Finally, as a last resort, the foreground Files by Google app (adj=0, fg TOP)
+
+Both bugreports (02-09 / 02-11) show nearly identical kill sequences, confirming this is reproducible system behavior.
+
+[Key Evidence]
+  - Kill reason: reason=3 (LOW_MEMORY), importance=100 (foreground app)
+  - kswapd CPU: 14% + 13%, kernel memory reclaim running at full capacity but insufficient
+  - oom_reaper events: 242 / 254 occurrences (normal should be ~0)
+
+[Why This Is Expected]
+Verified that Files by Google has oom_score_adj=0 (highest foreground priority) when in use. The Kernel exhausted all lower-priority processes before terminating it. This is by design of the Linux OOM Killer.
+
+Please see the attached RCA slides for detailed analysis.
+
+Best regards,
